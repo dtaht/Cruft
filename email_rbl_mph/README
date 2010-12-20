@@ -1,0 +1,28 @@
+I wanted an email rbl that would scale well to smaller systems
+and not have the dependency on the external rbl service(s),
+AND be fast, and work with IPv6. 
+
+I also thought it would be nice to have something that scaled
+better than ipset for just plain blocking bad or malicious IP addresses.
+ipset clobbered even a big system with a mere 256K entries.
+
+The anti-uce rbl databases have OVER 2 million entries now.
+
+So...
+
+I fell briefly in love with the idea of using minimal perfect hashes
+and coded up the plook.c code to try out the cmph library, as 
+
+A) the rbl data is relatively stable, only changing once an hour
+B) you can shrink a perfect hash lookup so that it's 2 bits per entry
+   or so and then one probe into the db. 
+C) The data becomes purely read-only at that point so that it can be
+   easily swapped out (discarded) by the OS when under memory pressure. 
+
+After fiddling with it for a while I realized that probably (lacking a
+benchmark) doing a binary search of the sorted binary data was probably
+the most effecient algorithm possible, even with IPv6, even with 2M records.
+
+I may return to something like this code, someday, as the binary search
+effectively saves 8MB of ram TODAY that can get used for something else.
+
