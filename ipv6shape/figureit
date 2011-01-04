@@ -1,0 +1,45 @@
+#!/bin/sh
+
+ip6tables -F TCP
+ip6tables -F OTHER
+ip6tables -F MAIN
+ip6tables -N OTHER
+ip6tables -N TCP
+ip6tables -N MAIN
+ip6tables -A MAIN -p tcp -j TCP
+ip6tables -A MAIN ! -p tcp -j OTHER
+cat /etc/protocols | egrep -v "^#" | while read proto num extra
+do
+if [ $proto != "ip" -a $proto != "tcp" ]
+then
+ip6tables -F P_${proto}
+ip6tables -N P_${proto}
+if [ $proto != "udp" ]
+then
+ip6tables -A P_${proto} -j ACCEPT
+fi
+ip6tables -A OTHER -p ${num} -j P_${proto}
+fi
+done
+
+ip6tables -F HUH
+ip6tables -N HUH
+ip6tables -A OTHER -j HUH
+
+# --source	-s address[/mask] fe80::/16
+
+cat /etc/services | egrep -v "^#" | grep "/udp" | while read proto n extra
+do
+if [ $proto != "ip" -a $proto != "tcp" ]
+then
+num=`echo $n | cut -f1 -d/`
+ip6tables -F u_${proto}
+ip6tables -N u_${proto}
+ip6tables -A u_${proto} -j ACCEPT
+ip6tables -A P_udp -p udp --source-port ${num} -j u_${proto}
+fi
+done
+
+ip6tables -A P_udp -j HUH
+ip6tables -A HUH -j LOG
+

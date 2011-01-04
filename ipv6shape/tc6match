@@ -1,0 +1,25 @@
+#!/bin/
+
+# This is how you create a match in tc on a specific IPv6 address.
+# Ugly, nyet?
+
+# tc filter add dev $DEV parent 10:0 protocol ip prio 10 u32 \
+#            match ip protocol 41 0xff \
+#            match u8 0x05 0x0f at 0 \
+#            match u8 0x3f 0xff at 44 \
+#            match u8 0xfe 0xff at 45 \
+#            match u8 0x20 0xff at 46 \
+#            match u8 0x2c 0xff at 47 \
+#            match u8 0xff 0xff at 48 \
+#            match u8 0xff 0xff at 49 \
+#            match u8 0x00 0xff at 50 \
+#            match u8 0x32 0xff at 51 \
+#            match u8 0x02 0xff at 52 \
+#            match u8 0x30 0xff at 53 \
+#            match u8 0x4f 0xff at 54 \
+#            match u8 0xff 0xff at 55 \
+#            match u8 0xfe 0xff at 56 \
+#            match u8 0x08 0xff at 57 \
+#            match u8 0x35 0xff at 58 \
+#            match u8 0x8d 0xff at 59 \
+#            flowid 10:13
