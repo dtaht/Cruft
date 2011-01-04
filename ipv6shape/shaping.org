@@ -1,0 +1,858 @@
+* Beating Bufferbloat - and lowering latency for gaming and interactive applications
+  http://gettys.wordpress.com/
+** Background - 1996
+In 1996 I worked on a hybrid wireless cable/modem setup - it broadcast on channel 13 at 10Mbit/sec, and subscriber uplinks operated at 28,800 baud. No matter what we tried tcp downloads couldn't exceed about 6Mbits. 
+
+I realized, then, that TCP is "clocked" by the tcp ack packets.
+
+At the time I was overjoyed - it meant that the cable companies' sekret plan to only have enough upchannel bandwidth for a "buy" button wasn't going to work, and thus, no matter what, we'd have some semblance of a bidirectional internet in the future.
+
+I was a packethead, not a bellhead. 
+
+** Background - 2002
+As home wireless networks took off, starting in the late 90s, there was an explosion of interest in 
+
+When I was trying to figure
+
+Came up with the wondershaper, and the problem seemed solved. The principal innovation of wondershaper was that it moved TCP ack packets into their own class, thus 
+
+** Background - 2006 - The asymmetric network takeover
+** Background - 2004 - GigE
+
+The entire 
+
+** Fast forward to 2011 - and the bandwidth wars 
+
+And start twisting some knobs. I
+
+** Background -
+
+The math:
+
+Here is 
+
+* The endemic bufferbloat problem
+** Streaming Radio Failures
+** Getting Fragged a lot
+** Slow DNS
+** Bad/laggy voice/video
+
+* Primary Steps 
+If you don't do the following two steps, all you are doing is is steering your car onto an icy road. No amount of traffic shaping can save you. Death shall not release you. At MINIMUM, for voice traffic, you need to reduce your overall jitter well below 10ms, and latency below 10ms as well. I would suggest aiming for 2ms (at which point the jitter and latency at your internet gateway matches the rest of your internal wireless network [[assuming 11g]]. 
+
+*** Reduce DMA TX Queue length
+    The TX queue lengths on EVERY piece of Linux hardware are far too long at present. An extremist might view anything higher than 2 packets as too long, my view is less extreme - it's a function of your uplink bandwidth, more than anything else. You can get away with a balance that lowers the overall load on your CPU, but I'm willing to bet money that the extremes of DMA buffering I'm seeing are well beyond noticable for most systems. 
+
+That said a typical 
+**** OpenRD
+     The openrd (and related Guruplug/Sheevaplug) default to a dma transmit queue length of 256 entries. 
+**** Nanostation M
+
+*** Reduce txqueuelen
+
+
+* Recomendations
+
+Ethernet drivers should probably defer allocating their ring buffers until AFTER negotiating a connection speed. 
+
+* Discussion
+
+There's a few ways to skin this cat. We could:
+
+Since the phones are on distinct IP addresses, we could simply prioritize all their packets above the other devices in the household. Regardless, offering a fair share of the bandwidth to all the active devices in the household would mean that the network degraded more slowly 
+* Theory
+** [[http://www.adsl-optimizer.dk/thesis/]]
+** 
+
+* Existing Alternatives
+ARP, DHCP, Routing protocols, DNS, ntp, voip, etc, are all far more important packet types than TCP and TCP/acks. 
+
+have a tendency to optimize for two things - ssh interactivity and ping times, and wave hands when it comes to classifying the other packet types. 
+
+Worse, none of them talk to the special requirements of IPv6, which uses (in particular) link local multicast 
+
+Have increased by at least an order of magnitude. The problems that the data centers are solving are not the same problems that exist in the home or in the third world, where connection speeds range from 24Mbit/3Mibt (Comcast, my house), to 128k/128k (wireless throughout san juan del sur).
+
+Dependent on assumptions that were true then - 6k burst length, for example, is now invalidated by google's insertion into the Linux kernel of 10 packets = 15k, max. 
+
+Fiddling with the terms of a complex equation, writing down the results of those terms,  and assuming they would scale. 
+
+As one example, the hfsc script described later assigns 
+
+It is unlikely that as a ratio of "noise" to TCP packets that these ratios have stayed the same for higher speed networks. As a guess, I'm going to try changing the ratios from simple percentages of the outgoing bandwidth to 1/3 o their current values - for 
+
+DHCP packets are probably stable
+NTP hasn't changed at all
+DNS - although being more heavily hard hit - can't possibly be 20x what it was. If we assume an 80% hit ratio, we can assume 6x
+Routing, link local packets
+
+In looking over the code I noticed that the designer did something clever with ping payloads. Ping payloads of greater than 500 bytes ended up in a different queue. 
+
+So I (cleverly) have setup ping payloads of 70-80 bytes as being sent through each class, thus making at least some of the measurement easier. 
+
+A normal ping (60 bytes) goes through the normal class traffic.
+
+www.cis.udel.edu/~nataraja/papers/MultTCPTR.pdf
+
+rsync
+
+(Tested with rsync, iperf, elinks, and firefox) that although the TCP shows SACK permitted, as does the confirm packet, no actual sack packets are sent. I have no idea what this is)
+
+Asymmetry
+
+http://rfc-ref.org/RFC-TEXTS/3449/chapter5.html
+
+** Wondershaper
+   Putting the ACK packets into a separate class. It worked - in 2002. Gradually 
+
+That class got mixed into the other forms of traffic - DNS, NTP, and ping. 
+
+DNS, ping, and all the otherwise interactive packets I had suddenly became much more responsive. This still means that optimizing this sort of traffic wholesale over other forms of traffic can be abused in a non-well behaved network, but 
+
+Doing this gave me an idea, now that the ACKs were classified, maybe it would be possible to shape the acks into their own bins against the port numbers and flows.... Acks have the interesting property of accumulating, so doing an EARLY drop would effectively signal the sender to slow down transmits - without affecting the other flows in the system. 
+
+Early drop - in conjunction with some way of tracking ACK packets - against the existing flows - may be a solution. Have to do the math. 
+
+The problem is that information is lost by the time that you hit that NAT step - you have no way of throttling individual devices, merely individual flows. 
+** HFSC
+
+Comes closer but it creates artificially long chains. 
+
+A simple optimization would be to classify traffic into udp and tcp types
+
+** Active measurement
+If you could ping the nearest router 
+
+There was a (failed) set of RFCs involving Source Quench - which proved abusable and not general enough.
+
+Feedback loop...
+
+** Magicshaper
+** Deep Packet Inspection
+* Invalid options
+
+** Overall bandwidth has increased by a factor of 20 
+since the first traffic shapers were developed. 
+
+
+* Optimize traffic by device
+This token-ring like architecture would provides it's own backpressure
+* Optimize for Interactive traffic
+* Adopt traffic shaping
+** Alternate Queuing disciplines
+*** SFB (schostic fair blue)
+*** ESFQ 
+*** HFSC
+    Is good for where you want to enforce 
+* Experiments thus far
+** Wondershaper
+** HFSC
+./hfsc start eth0 64000 3800
+
+And the wheels lift from the road again...
+
+4 bytes from sb.lwn.net (72.51.34.34): icmp_seq=22 ttl=51 time=425 ms
+
+
+
+ntp
+
+Add sfq
+
+> # guarantee 1/10
+128c128
+sc m1 0 d 1s m2 $((1*$UPLINK/10))kbit \
+130d129
+< tc qdisc add dev $DEV parent 1:4 handle 4: sfq perturb 2
+198c197
+# them to 6/10 of the downlink.
+203c202
+police rate $((6*${DOWNLINK}/10))kbit \
+210c209
+police rate $((6*${DOWNLINK}/10))kbit \
+
++ tc qdisc add dev imq3 root handle 9:0 hfsc default 2
++ tc class add dev imq3 parent 9: classid 9:1 hfsc sc rate 456kbit ul rate 456kbit
+HFSC: What is “sc” ?
+Usage: … hfsc [ rt SC ] [ ls SC ] [ ul SC ]
+
+SC := [ [ m1 BPS ] [ d SEC ] m2 BPS
+
+m1 : slope of first segment
+d : x-coordinate of intersection
+m2 : slope of second segment
+
+Alternative format:
+
+SC := [ [ umax BYTE ] dmax SEC ] rate BPS
+
+umax : maximum unit of work
+dmax : maximum delay
+rate : rate
+
+Are asymmetric
+
+http://www.mastershaper.org/index.php/Main_Page
+
+http://automatthias.wordpress.com/2006/06/30/hfsc-and-voip/
+
+** Port 53 from the nameserver
+
+http://www.mail-archive.com/linux-net@vger.kernel.org/msg02033.html
+
+http://www.adsl-optimizer.dk/thesis/main_final_hyper.pdf
+
+http://netoptimizer.blogspot.com/2010/12/buffer-bloat-calculations.html
+
+http://www.cs.cmu.edu/~hzhang/HFSC/tech.html
+
+** HFSC example
+
+# Example from Figure 1. tc qdisc add dev eth0 root handle 1: hfsc tc class add dev eth0 parent 1: classid 1:1 hfsc sc rate 1000kbit ul rate 1000kbit tc class add dev eth0 parent 1:1 classid 1:10 hfsc sc rate 500kbit ul rate 1000kbit tc class add dev eth0 parent 1:1 classid 1:20 hfsc sc rate 500kbit ul rate 1000kbit tc class add dev eth0 parent 1:10 classid 1:11 hfsc sc umax 1500b dmax 53ms rate 400kbit ul rate 1000kbit tc class add dev eth0 parent 1:10 classid 1:12 hfsc sc umax 1500b dmax 30ms rate 100kbit ul rate 1000kbit 
+
+
+http://linux-ip.net/articles/hfsc.en/
+
+
+Patrick McHardy
+Tue, 19 Feb 2008 06:20:20 -0800
+
+David Miller wrote:
+
+    From: "Brock Noland" <[EMAIL PROTECTED]>
+    Date: Sat, 9 Feb 2008 20:30:58 -0600
+
+
+        Is this going to be merged anytime soon?
+
+    If it gets submitted to the proper mailing list, it might.
+    'linux-net' is for user questions, it is not where the networking
+    developers hang out, 'netdev' is.
+
+    And you have to post patches for review, not URL's point to
+    the patches.  It has to be int he email, in an applyable form
+    so people can review the thing properly.
+
+
+Since SFQ is not exactly simple and I needed something like this
+myself, I followed Paul's suggestion and added a new scheduler
+(DRR) for this with more flexible limits.
+
+I'll rediff against net-2.6.26 within the next days and send
+a final version for review (anyone interested is welcome to
+already review this version of course :).
+
+
+commit 13d0cc64d0f7fed945c357cf4ca43330c8f95ad2
+Author: Patrick McHardy <[EMAIL PROTECTED]>
+Date:   Mon Feb 18 22:21:55 2008 +0100
+
+    [NET_SCHED]: Add DRR scheduler
+    
+    Signed-off-by: Patrick McHardy <[EMAIL PROTECTED]>
+
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index dbb7ac3..2fca9c4 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -482,4 +482,20 @@ struct tc_netem_corrupt
+ 
+ #define NETEM_DIST_SCALE       8192
+ 
++/* DRR */
++
++enum
++{
++       TCA_DRR_UNSPEC,
++       TCA_DRR_QUANTUM,
++       __TCA_DRR_MAX
++};
++
++#define TCA_DRR_MAX    (__TCA_DRR_MAX - 1)
++
++struct tc_drr_stats
++{
++       s32     deficit;
++};
++
+ #endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 82adfe6..7e1ab99 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -196,6 +196,9 @@ config NET_SCH_NETEM
+ 
+          If unsure, say N.
+ 
++config NET_SCH_DRR
++       tristate "DRR scheduler"
++
+ config NET_SCH_INGRESS
+        tristate "Ingress Qdisc"
+        depends on NET_CLS_ACT
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 1d2b0f7..b055f74 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -28,6 +28,7 @@ obj-$(CONFIG_NET_SCH_TEQL)    += sch_teql.o
+ obj-$(CONFIG_NET_SCH_PRIO)     += sch_prio.o
+ obj-$(CONFIG_NET_SCH_ATM)      += sch_atm.o
+ obj-$(CONFIG_NET_SCH_NETEM)    += sch_netem.o
++obj-$(CONFIG_NET_SCH_DRR)      += sch_drr.o
+ obj-$(CONFIG_NET_CLS_U32)      += cls_u32.o
+ obj-$(CONFIG_NET_CLS_ROUTE4)   += cls_route.o
+ obj-$(CONFIG_NET_CLS_FW)       += cls_fw.o
+diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
+new file mode 100644
+index 0000000..aa241b5
+--- /dev/null
++++ b/net/sched/sch_drr.c
+@@ -0,0 +1,534 @@
++/*
++ * net/sched/sch_drr.c         Deficit Round Robin scheduler
++ *
++ * Copyright (c) 2008 Patrick McHardy <[EMAIL PROTECTED]>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/errno.h>
++#include <linux/netdevice.h>
++#include <linux/pkt_sched.h>
++#include <net/sch_generic.h>
++#include <net/pkt_sched.h>
++#include <net/pkt_cls.h>
++
++struct drr_class {
++       struct hlist_node               hlist;
++       u32                             classid;
++       unsigned int                    refcnt;
++
++       struct gnet_stats_basic         bstats;
++       struct gnet_stats_queue         qstats;
++       struct gnet_stats_rate_est      rate_est;
++       struct list_head                alist;
++       struct Qdisc *                  qdisc;
++
++       u32                             quantum;
++       s32                             deficit;
++};
++
++#define DRR_HSIZE      16
++
++struct drr_sched {
++       struct list_head                active;
++       struct tcf_proto *              filter_list;
++       unsigned int                    filter_cnt;
++       struct hlist_head               clhash[DRR_HSIZE];
++       struct sk_buff *                requeue;
++};
++
++static unsigned int drr_hash(u32 h)
++{
++       h ^= h >> 8;
++       h ^= h >> 4;
++
++       return h & (DRR_HSIZE - 1);
++}
++
++static struct drr_class *drr_find_class(struct Qdisc *sch, u32 classid)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl;
++       struct hlist_node *n;
++
++       hlist_for_each_entry(cl, n, &q->clhash[drr_hash(classid)], hlist) {
++               if (cl->classid == classid)
++                       return cl;
++       }
++       return NULL;
++}
++
++static void drr_purge_queue(struct drr_class *cl)
++{
++       unsigned int len = cl->qdisc->q.qlen;
++
++       qdisc_reset(cl->qdisc);
++       qdisc_tree_decrease_qlen(cl->qdisc, len);
++}
++
++static const struct nla_policy drr_policy[TCA_DRR_MAX + 1] = {
++       [TCA_DRR_QUANTUM]       = { .type = NLA_U32 },
++};
++
++static int drr_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
++                           struct nlattr **tca, unsigned long *arg)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl = (struct drr_class *)*arg;
++       struct nlattr *tb[TCA_DRR_MAX + 1];
++       u32 quantum;
++       int err;
++
++       err = nla_parse_nested(tb, TCA_DRR_MAX, tca[TCA_OPTIONS], drr_policy);
++       if (err < 0)
++               return err;
++
++       if (tb[TCA_DRR_QUANTUM]) {
++               quantum = nla_get_u32(tb[TCA_DRR_QUANTUM]);
++               if (quantum == 0)
++                       return -EINVAL;
++       } else
++               quantum = psched_mtu(sch->dev);
++
++       if (cl != NULL) {
++               sch_tree_lock(sch);
++               if (tb[TCA_DRR_QUANTUM])
++                       cl->quantum = quantum;
++               sch_tree_unlock(sch);
++
++               if (tca[TCA_RATE])
++                       gen_replace_estimator(&cl->bstats, &cl->rate_est,
++                                             &sch->dev->queue_lock,
++                                             tca[TCA_RATE]);
++               return 0;
++       }
++
++       cl = kzalloc(sizeof(struct drr_class), GFP_KERNEL);
++       if (cl == NULL)
++               return -ENOBUFS;
++
++       cl->refcnt      = 1;
++       cl->classid     = classid;
++       cl->quantum     = quantum;
++       cl->deficit     = quantum;
++       cl->qdisc       = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops,
++                                           classid);
++       if (cl->qdisc == NULL)
++               cl->qdisc = &noop_qdisc;
++
++       if (tca[TCA_RATE])
++               gen_replace_estimator(&cl->bstats, &cl->rate_est,
++                                     &sch->dev->queue_lock, tca[TCA_RATE]);
++
++       sch_tree_lock(sch);
++       hlist_add_head(&cl->hlist, &q->clhash[drr_hash(classid)]);
++       sch_tree_unlock(sch);
++
++       *arg = (unsigned long)cl;
++       return 0;
++}
++
++static void drr_destroy_class(struct Qdisc *sch, struct drr_class *cl)
++{
++       gen_kill_estimator(&cl->bstats, &cl->rate_est);
++       qdisc_destroy(cl->qdisc);
++       kfree(cl);
++}
++
++static int drr_delete_class(struct Qdisc *sch, unsigned long arg)
++{
++       struct drr_class *cl = (struct drr_class *)arg;
++
++       sch_tree_lock(sch);
++
++       drr_purge_queue(cl);
++       hlist_del(&cl->hlist);
++
++       if (--cl->refcnt == 0)
++               drr_destroy_class(sch, cl);
++
++       sch_tree_unlock(sch);
++       return 0;
++}
++
++static unsigned long drr_get_class(struct Qdisc *sch, u32 classid)
++{
++       struct drr_class *cl = drr_find_class(sch, classid);
++
++       if (cl != NULL)
++               cl->refcnt++;
++
++       return (unsigned long)cl;
++}
++
++static void drr_put_class(struct Qdisc *sch, unsigned long arg)
++{
++       struct drr_class *cl = (struct drr_class *)arg;
++
++       if (--cl->refcnt == 0)
++               drr_destroy_class(sch, cl);
++}
++
++static struct tcf_proto **drr_tcf_chain(struct Qdisc *sch, unsigned long cl)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++
++       if (cl)
++               return NULL;
++
++       return &q->filter_list;
++}
++
++static unsigned long drr_bind_tcf(struct Qdisc *sch, unsigned long parent,
++                                 u32 classid)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl = drr_find_class(sch, classid);
++
++       if (cl != NULL)
++               q->filter_cnt++;
++
++       return (unsigned long)cl;
++}
++
++static void drr_unbind_tcf(struct Qdisc *sch, unsigned long arg)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++
++       q->filter_cnt--;
++}
++
++static int drr_graft_class(struct Qdisc *sch, unsigned long arg,
++                          struct Qdisc *new, struct Qdisc **old)
++{
++       struct drr_class *cl = (struct drr_class *)arg;
++
++       if (new == NULL) {
++               new = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops,
++                                       cl->classid);
++               if (new == NULL)
++                       new = &noop_qdisc;
++       }
++
++       sch_tree_lock(sch);
++       drr_purge_queue(cl);
++       *old = xchg(&cl->qdisc, new);
++       sch_tree_unlock(sch);
++       return 0;
++}
++
++static struct Qdisc *drr_class_leaf(struct Qdisc *sch, unsigned long arg)
++{
++       struct drr_class *cl = (struct drr_class *)arg;
++
++       return cl->qdisc;
++}
++
++static void drr_qlen_notify(struct Qdisc *csh, unsigned long arg)
++{
++       struct drr_class *cl = (struct drr_class *)arg;
++
++       if (cl->qdisc->q.qlen == 0)
++               list_del(&cl->alist);
++}
++
++static int drr_dump_class(struct Qdisc *sch, unsigned long arg,
++                         struct sk_buff *skb, struct tcmsg *tcm)
++{
++       struct drr_class *cl = (struct drr_class *)arg;
++       struct nlattr *nest;
++
++       tcm->tcm_parent = TC_H_ROOT;
++       tcm->tcm_handle = cl->classid;
++       tcm->tcm_info   = cl->qdisc->handle;
++
++       nest = nla_nest_start(skb, TCA_OPTIONS);
++       if (nest == NULL)
++               goto nla_put_failure;
++
++       NLA_PUT_U32(skb, TCA_DRR_QUANTUM, cl->quantum);
++
++       nla_nest_end(skb, nest);
++       return skb->len;
++
++nla_put_failure:
++       nla_nest_cancel(skb, nest);
++       return -1;
++}
++
++static int drr_dump_class_stats(struct Qdisc *sch, unsigned long arg,
++                               struct gnet_dump *d)
++{
++       struct drr_class *cl = (struct drr_class *)arg;
++       struct tc_drr_stats xstats = {
++               .deficit        = cl->deficit,
++       };
++
++       if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
++           gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
++           gnet_stats_copy_queue(d, &cl->qdisc->qstats) < 0)
++               return -1;
++
++       return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
++}
++
++static void drr_walk(struct Qdisc *sch, struct qdisc_walker *arg)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl;
++       struct hlist_node *n;
++       unsigned int i;
++
++       if (arg->stop)
++               return;
++
++       for (i = 0; i < DRR_HSIZE; i++) {
++               hlist_for_each_entry(cl, n, &q->clhash[i], hlist) {
++                       if (arg->count < arg->skip) {
++                               arg->count++;
++                               continue;
++                       }
++                       if (arg->fn(sch, (unsigned long)cl, arg) < 0) {
++                               arg->stop = 1;
++                               return;
++                       }
++                       arg->count++;
++               }
++       }
++}
++
++static struct drr_class *drr_classify(struct sk_buff *skb, struct Qdisc *sch,
++                                     int *qerr)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl;
++       struct tcf_result res;
++       int result;
++
++       if (TC_H_MAJ(skb->priority ^ sch->handle) == 0) {
++               cl = drr_find_class(sch, skb->priority);
++               if (cl != NULL)
++                       return cl;
++       }
++
++       *qerr = NET_XMIT_BYPASS;
++       result = tc_classify(skb, q->filter_list, &res);
++       if (result >= 0) {
++#ifdef CONFIG_NET_CLS_ACT
++               switch (result) {
++               case TC_ACT_QUEUED:
++               case TC_ACT_STOLEN:
++                       *qerr = NET_XMIT_SUCCESS;
++               case TC_ACT_SHOT:
++                       return NULL;
++               }
++#endif
++               cl = (struct drr_class *)res.class;
++               if (cl == NULL)
++                       cl = drr_find_class(sch, res.classid);
++               return cl;
++       }
++       return NULL;
++}
++
++static int drr_enqueue(struct sk_buff *skb, struct Qdisc *sch)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl;
++       unsigned int len;
++       int err;
++
++       cl = drr_classify(skb, sch, &err);
++       if (cl == NULL) {
++               if (err == NET_XMIT_BYPASS)
++                       sch->qstats.drops++;
++               kfree_skb(skb);
++               return err;
++       }
++
++       len = skb->len;
++       err = cl->qdisc->enqueue(skb, cl->qdisc);
++       if (unlikely(err != NET_XMIT_SUCCESS)) {
++               cl->qstats.drops++;
++               sch->qstats.drops++;
++               return err;
++       }
++
++       if (cl->qdisc->q.qlen == 1)
++               list_add_tail(&cl->alist, &q->active);
++
++       cl->bstats.packets++;
++       cl->bstats.bytes += len;
++       sch->bstats.packets++;
++       sch->bstats.bytes++;
++
++       sch->q.qlen++;
++       return err;
++}
++
++static struct sk_buff *drr_dequeue(struct Qdisc *sch)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl, *next;
++       struct sk_buff *skb;
++
++       if (q->requeue != NULL) {
++               skb = q->requeue;
++               q->requeue = NULL;
++               goto out;
++       }
++
++       list_for_each_entry_safe(cl, next, &q->active, alist) {
++               if (cl->deficit <= 0) {
++                       WARN_ON(!cl->qdisc->q.qlen);
++                       list_move_tail(&cl->alist, &q->active);
++                       cl->deficit += cl->quantum;
++                       continue;
++               }
++
++               skb = cl->qdisc->dequeue(cl->qdisc);
++               if (skb == NULL)
++                       continue;
++
++               cl->deficit -= skb->len;
++               if (cl->deficit <= 0) {
++                       if (cl->qdisc->q.qlen)
++                               list_move_tail(&cl->alist, &q->active);
++                       cl->deficit += cl->quantum;
++               }
++               if (!cl->qdisc->q.qlen)
++                       list_del(&cl->alist);
++out:
++               sch->q.qlen--;
++               return skb;
++       }
++
++       return NULL;
++}
++
++static int drr_requeue(struct sk_buff *skb, struct Qdisc *sch)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++
++       q->requeue = skb;
++       sch->q.qlen++;
++
++       return NET_XMIT_SUCCESS;
++}
++
++static unsigned int drr_drop(struct Qdisc *sch)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl;
++       unsigned int len;
++
++       list_for_each_entry(cl, &q->active, alist) {
++               if (cl->qdisc->ops->drop) {
++                       len = cl->qdisc->ops->drop(cl->qdisc);
++                       if (len > 0) {
++                               if (cl->qdisc->q.qlen == 0)
++                                       list_del(&cl->alist);
++                               return len;
++                       }
++               }
++       }
++       return 0;
++}
++
++static int drr_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       unsigned int i;
++
++       for (i = 0; i < DRR_HSIZE; i++)
++               INIT_HLIST_HEAD(&q->clhash[i]);
++       INIT_LIST_HEAD(&q->active);
++       return 0;
++}
++
++static void drr_reset_qdisc(struct Qdisc *sch)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl;
++       struct hlist_node *n;
++       unsigned int i;
++
++       if (q->requeue) {
++               kfree_skb(q->requeue);
++               q->requeue = NULL;
++       }
++       for (i = 0; i < DRR_HSIZE; i++) {
++               hlist_for_each_entry(cl, n, &q->clhash[i], hlist) {
++                       if (cl->qdisc->q.qlen)
++                               list_del(&cl->alist);
++                       qdisc_reset(cl->qdisc);
++                       cl->deficit = cl->quantum;
++               }
++       }
++       sch->q.qlen = 0;
++}
++
++static void drr_destroy_qdisc(struct Qdisc *sch)
++{
++       struct drr_sched *q = qdisc_priv(sch);
++       struct drr_class *cl;
++       struct hlist_node *n, *next;
++       unsigned int i;
++
++       tcf_destroy_chain(q->filter_list);
++
++       for (i = 0; i < DRR_HSIZE; i++) {
++               hlist_for_each_entry_safe(cl, n, next, &q->clhash[i], hlist)
++                       drr_destroy_class(sch, cl);
++       }
++}
++
++static const struct Qdisc_class_ops drr_class_ops = {
++       .change         = drr_change_class,
++       .delete         = drr_delete_class,
++       .get            = drr_get_class,
++       .put            = drr_put_class,
++       .tcf_chain      = drr_tcf_chain,
++       .bind_tcf       = drr_bind_tcf,
++       .unbind_tcf     = drr_unbind_tcf,
++       .graft          = drr_graft_class,
++       .leaf           = drr_class_leaf,
++       .qlen_notify    = drr_qlen_notify,
++       .dump           = drr_dump_class,
++       .dump_stats     = drr_dump_class_stats,
++       .walk           = drr_walk,
++};
++
++static struct Qdisc_ops drr_qdisc_ops __read_mostly = {
++       .cl_ops         = &drr_class_ops,
++       .id             = "drr",
++       .priv_size      = sizeof(struct drr_sched),
++       .enqueue        = drr_enqueue,
++       .dequeue        = drr_dequeue,
++       .requeue        = drr_requeue,
++       .drop           = drr_drop,
++       .init           = drr_init_qdisc,
++       .reset          = drr_reset_qdisc,
++       .destroy        = drr_destroy_qdisc,
++       .owner          = THIS_MODULE,
++};
++
++static int __init drr_init(void)
++{
++       return register_qdisc(&drr_qdisc_ops);
++}
++
++static void __exit drr_exit(void)
++{
++       unregister_qdisc(&drr_qdisc_ops);
++}
++
++module_init(drr_init);
++module_exit(drr_exit);
++MODULE_LICENSE("GPL");
+
+* Ongoing issues
+** SKYPE
+** BITTORRENT
+** IMQ Device
+** IPv6
+* Wild ideas
+** Random early drop of ack/nack packets
+One of the things I noticed in this admittedly brief view of the literature is the total overfocus on TCP 
+
+
+** 
+
+http://www.ibm.com/developerworks/linux/library/l-tcp-sack/index.html
