@@ -71,13 +71,15 @@ have a tendency to optimize for two things - ssh interactivity and ping times, a
 
 Worse, none of them talk to the special requirements of IPv6, which uses (in particular) link local multicast 
 
+Absolutely all the shaper tools I've fiddled with http://www.nslu2-linux.org/wiki/HowTo/EnableTrafficShaping
+
 Have increased by at least an order of magnitude. The problems that the data centers are solving are not the same problems that exist in the home or in the third world, where connection speeds range from 24Mbit/3Mibt (Comcast, my house), to 128k/128k (wireless throughout san juan del sur).
 
 Dependent on assumptions that were true then - 6k burst length, for example, is now invalidated by google's insertion into the Linux kernel of 10 packets = 15k, max. 
 
 Fiddling with the terms of a complex equation, writing down the results of those terms,  and assuming they would scale. 
 
-As one example, the hfsc script described later assigns 
+As one example, the hfsc script described later assigns transport ratios in 10% of a percent, when a single percentage point would suffice.
 
 It is unlikely that as a ratio of "noise" to TCP packets that these ratios have stayed the same for higher speed networks. As a guess, I'm going to try changing the ratios from simple percentages of the outgoing bandwidth to 1/3 o their current values - for 
 

@@ -1,0 +1,157 @@
+#!/bin/bash
+# encoding: UTF-8
+# 
+# Maciej Bliziński, http://automatthias.wordpress.com/
+#
+# References:
+# http://www.voip-info.org/wiki/view/QoS+Linux+with+HFSC
+# http://www.nslu2-linux.org/wiki/HowTo/EnableTrafficShaping
+# http://www.cs.cmu.edu/~hzhang/HFSC/main.html
+
+# Specify parameters of your xDSL. Give values slightly lower than the
+# nominal ones. For example, my line is 256/128, so I specify 240/100.
+
+
+# ARGS: action dev downlink uplink
+
+. shaper.cfg
+
+# Uplink and downlink speeds
+DOWNLINK=$3
+UPLINK=$4
+
+# Device that connects you to the Internet
+DEV=$2
+
+# Action to be performed
+ACTION=$1
+
+case "$ACTION" in
+status)
+	check_device
+
+	echo "[qdisc]"
+        tc -s qdisc show dev $DEV
+
+        echo ""
+        echo "[class]"
+        tc -s class show dev $DEV
+
+        echo ""
+        echo "[filter]"
+        tc -s filter show dev $DEV
+
+        echo ""
+        echo "[$iptables]"
+        $iptables -t mangle -L SHAPER -v -x 2> /dev/null
+	;;
+
+stop)
+	check_device
+        # Reset everything to a known state (cleared)
+        (
+        tc qdisc del dev $DEV root    
+        tc qdisc del dev $DEV ingress 
+	)
+	echo "QoS tables removed"
+;;
+
+start) 
+	check_device
+	if [ -z "$DOWNLINK" ] ; then
+		echo "$0: start requires a downlink speed, aborting."
+		exit -1
+	fi
+	if [ -z "$UPLINK" ] ; then
+		echo "$0: start requires an uplink speed, aborting."
+		exit -1
+	fi
+
+
+        # add HFSC root qdisc
+        tc qdisc add dev $DEV root handle 1: hfsc default 5
+
+        # add main rate limit class
+        tc class add dev $DEV parent 1: classid 1:10 hfsc \
+                sc rate ${UPLINK}kbit ul rate ${UPLINK}kbit
+
+        # Interactive traffic: guarantee realtime full uplink for 50ms, then
+        # 1/100th of the uplink
+
+        tc class add dev $DEV parent 1:1  classid 1:20 hfsc \
+                rt m1   ${UPLINK}kbit d  10ms m2 $(($UPLINK/100))kbit \
+                ls m1   ${UPLINK}kbit d  10ms m2 $(($UPLINK/100))kbit \
+                ul rate ${UPLINK}kbit
+
+	# For TCP ACKS we want to be even more special thant this
+
+        tc class add dev $DEV parent 1:1  classid 1:30 hfsc \
+                rt m1   ${UPLINK}kbit d  50ms m2 $((5*$UPLINK/10))kbit \
+                ls m1   ${UPLINK}kbit d  50ms m2 $((7*$UPLINK/10))kbit \
+                ul rate ${UPLINK}kbit
+
+        # VoIP: guarantee full uplink for 200ms, then 1/10
+        tc class add dev $DEV parent 1:1  classid 1:40 hfsc \
+                sc m1 ${UPLINK}kbit d 20ms m2 $((1*$UPLINK/10))kbit \
+                ul rate ${UPLINK}kbit
+
+        # Browsing: Don't guarantee anything for the first second, then
+        # guarantee 1/10
+
+        tc class add dev $DEV parent 1:1  classid 1:50 hfsc \
+                sc m1         0 d    1s m2 $((1*$UPLINK/10))kbit \
+                ul rate ${UPLINK}kbit
+
+        # Default traffic: don't guarantee anything for the first two seconds,
+        # then guarantee 1/20
+
+        tc class add dev $DEV parent 1:1  classid 1:60 hfsc \
+                sc m1         0 d    1s m2 $((1*$UPLINK/20))kbit \
+                ul rate ${UPLINK}kbit
+
+        # Bulk traffic: don't guarantee anything for the first two seconds,
+        # then guarantee 1/20
+
+        tc class add dev $DEV parent 1:1  classid 1:70 hfsc \
+                sc m1         0 d    2s m2 $((1*$UPLINK/20))kbit \
+                ul rate ${UPLINK}kbit
+
+
+        # Default traffic: don't guarantee anything for the first 10 seconds,
+        # then guarantee 1/20
+
+        tc class add dev $DEV parent 1:1  classid 1:80 hfsc \
+                sc m1         0 d   10s m2 $((1*$UPLINK/20))kbit \
+                ul rate ${UPLINK}kbit
+
+
+        # Try to control the incoming traffic as well.
+        # Set up ingress qdisc
+        tc qdisc add dev $DEV handle ffff: ingress
+
+        # Filter everything that is coming in too fast
+        # It's mostly HTTP downloads that keep jamming the downlink, so try to restrict
+        # them to 9/10 of the downlink.
+	# FIXME: Do this with chains as well
+
+        tc filter add dev $DEV parent ffff: protocol ip prio 50 \
+           u32 match ip src 0.0.0.0/0 \
+           match ip protocol 6 0xff \
+           match ip sport 80 0xffff \
+           police rate $((9*${DOWNLINK}/10))kbit \
+           burst 15k drop flowid :1
+
+        tc filter add dev $DEV parent ffff: protocol ip prio 50 \
+           u32 match ip src 0.0.0.0/0 \
+           match ip protocol 6 0xff \
+           match ip dport 80 0xffff \
+           police rate $((9*${DOWNLINK}/10))kbit \
+           burst 15k drop flowid :1
+;;
+
+*)
+        echo "$0 [ACTION] [device]"
+        echo "ACTION := { start [downlink] [uplink] | stop | status }"
+        exit
+	;;
+esac
