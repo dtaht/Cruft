@@ -12,36 +12,23 @@
 # nominal ones. For example, my line is 256/128, so I specify 240/100.
 
 
-# ARGS: action dev [6 4]
+# ARGS: dev action [6 4]
 
 . shaper.cfg
 
 # Uplink and downlink speeds
 
 # Device that connects you to the Internet
-DEV=$2
+DEV=$1
 
 # Action to be performed
-ACTION=$1
+ACTION=$2
 
 export iptables=ip6tables
-
 
 case "$ACTION" in
 status)
 	check_device
-
-	echo "[qdisc]"
-        tc -s qdisc show dev $DEV
-
-        echo ""
-        echo "[class]"
-        tc -s class show dev $DEV
-
-        echo ""
-        echo "[filter]"
-        tc -s filter show dev $DEV
-
         echo ""
         echo "[$iptables]"
         $iptables -t mangle -L SHAPER -v -x 2> /dev/null
@@ -53,7 +40,6 @@ stop)
         # Reset everything to a known state (cleared)
         (
         # Flush and delete tables
-        $iptables -t mangle --delete POSTROUTING -o $DEV -j SHAPER 
         $iptables -t mangle --flush        SHAPER 
         $iptables -t mangle --delete-chain SHAPER 
         $iptables -t mangle --flush        SHAPER_T 
@@ -69,6 +55,10 @@ stop)
 	    $iptables -t mangle --delete-chain $i 2> /dev/null > /dev/null
 	done
 	) > /dev/null 2>&1
+	
+#        $iptables -t mangle --flush POSTROUTING -o $DEV -j SHAPER 
+        $iptables -t mangle --delete POSTROUTING -o $DEV -j SHAPER 
+	
         echo "Shaping chains removed on $DEV."
         exit
 	;;
@@ -80,17 +70,12 @@ start)
         $iptables -t mangle --new-chain SHAPER_U
         $iptables -t mangle --new-chain SHAPER_I
 
-	gen_chains $CLASSIDS
-
-	$iptables -t mangle -A SHAPER -p tcp -j SHAPER_T
-	$iptables -t mangle -A SHAPER -p udp -j SHAPER_U
-	$iptables -t mangle -A SHAPER -p icmp -j SHAPER_I
-
+	gen_chains $CLASSID
 
         # To speed up downloads while an upload is going on, put short ACK
         # packets in the interactive class for packets we care about
 	# Note that a SHORT ACK packet is different in ipv6
-	# FIXME
+	# FIXME, we want to penalize more stuff
 
         $iptables -t mangle -A SHAPER_T \
                 -p tcp \
@@ -123,12 +108,17 @@ start)
         done
 
 # enable the shaper chains
+	$iptables -t mangle -A SHAPER -p tcp -g SHAPER_T
+	$iptables -t mangle -A SHAPER -p udp -g SHAPER_U
+	$iptables -t mangle -A SHAPER -p icmp -g SHAPER_I
+
+#       FIXME: Where do the other protocols go?
 
         $iptables -t mangle --insert POSTROUTING -o $DEV -j SHAPER
 ;;
 
 *)
-        echo "$0 [ACTION] [device]"
+        echo "$0 [device] [ACTION] [6 | 4]"
         echo "ACTION := { start | stop | status }"
         exit
 	;;

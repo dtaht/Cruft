@@ -12,7 +12,7 @@
 # nominal ones. For example, my line is 256/128, so I specify 240/100.
 
 
-# ARGS: action dev downlink uplink
+# ARGS: dev action downlink uplink
 
 . shaper.cfg
 
@@ -21,10 +21,10 @@ DOWNLINK=$3
 UPLINK=$4
 
 # Device that connects you to the Internet
-DEV=$2
+DEV=$1
 
 # Action to be performed
-ACTION=$1
+ACTION=$2
 
 case "$ACTION" in
 status)
@@ -150,7 +150,7 @@ start)
 ;;
 
 *)
-        echo "$0 [ACTION] [device]"
+        echo "$0 [device] [ACTION]"
         echo "ACTION := { start [downlink] [uplink] | stop | status }"
         exit
 	;;
