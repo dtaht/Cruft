@@ -160,8 +160,11 @@ start)
 
 if [ "$IPVER" = "6" ]
 then
+# Multicast
         $iptables -t mangle -A ${DEV}_SHAPER --source ff00::/8 -g ${DEV}_S_M
         $iptables -t mangle -A ${DEV}_SHAPER --dest ff00::/8 -g ${DEV}_S_M
+# Link local
+        $iptables -t mangle -A ${DEV}_SHAPER --dest fe00::/8 --source fe00::/8 -g ${DEV}_S_L
 else
 	$iptables -t mangle -A ${DEV}_SHAPER --source 224.0.0.0/4 -g ${DEV}_S_M
 	$iptables -t mangle -A ${DEV}_SHAPER --dest   224.0.0.0/4 -g ${DEV}_S_M
@@ -176,7 +179,7 @@ fi
 #       HIP (139)
 
 	$iptables -t mangle -A ${DEV}_SHAPER -g ${DEV}_S_O
-        $iptables -t mangle -i ${DEV} --insert POSTROUTING -o $DEV -g ${DEV}_SHAPER
+        $iptables -t mangle --insert POSTROUTING -o $DEV -g ${DEV}_SHAPER
 ;;
 
 *)
