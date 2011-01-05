@@ -1,0 +1,188 @@
+#!/bin/bash
+# encoding: UTF-8
+# 
+# Maciej Bliziński, http://automatthias.wordpress.com/
+#
+# References:
+# http://www.voip-info.org/wiki/view/QoS+Linux+with+HFSC
+# http://www.nslu2-linux.org/wiki/HowTo/EnableTrafficShaping
+# http://www.cs.cmu.edu/~hzhang/HFSC/main.html
+
+# Specify parameters of your xDSL. Give values slightly lower than the
+# nominal ones. For example, my line is 256/128, so I specify 240/100.
+
+# TODO Catagorize multicast
+# http://en.wikipedia.org/wiki/Dynamic_Host_Configuration_Protocol
+# DHCP is broadcast 255.255.255.255 on port 67 and Port 68
+# ARGS: dev action [6 4]
+
+# Uplink and downlink speeds
+
+# Device that connects you to the Internet
+DEV=$1
+
+# Action to be performed
+ACTION=$2
+
+IPVER=$3
+export iptables=iptables
+
+. devshaper.cfg
+
+
+if [ "$IPVER" = "6" ]
+then
+export iptables=ip6tables
+fi
+
+# To speed up downloads while an upload is going on, put short ACK
+# packets in a different class for packets we care about
+# Note that a SHORT ACK packet is different in ipv6
+# FIXME, we want to penalize more stuff
+
+function ack_optimize() {
+CH=$1
+CL=$2
+
+# FIXME, NEED TO PUT THE CLASS ELSEWHERE
+
+$iptables -t mangle -A $CH \
+    -p tcp \
+    -m tcp --tcp-flags FIN,SYN,RST,ACK ACK \
+    -j CLASSIFY --set-class $CL
+}
+
+# To adaquately measure the various bins under various loads
+# via ICMP we arbitrarily optimize certain ping sizes
+
+function icmp_optimize() {
+        # put large (512+) icmp packets in browsing category
+    $iptables -t mangle -A ${DEV}_S_I \
+        -p icmp \
+        -m length --length 512: \
+        -g ${DEV}_C_BRW
+
+        # ICMP (ip protocol 1) in the interactive class
+    $iptables -t mangle -A ${DEV}_S_I \
+        -p icmp  \
+        -m length --length :512 \
+        -g ${DEV}_C_INT
+    }
+
+case "$ACTION" in
+status)
+	check_device
+        echo ""
+        echo "[$iptables]"
+        $iptables -t mangle -L ${DEV}_SHAPER -v -x 2> /dev/null
+        exit
+	;;
+
+stop)
+	check_device
+        # Reset everything to a known state (cleared)
+        (
+	for i in $CLASSES
+	do
+	    $iptables -t mangle --flush ${DEV}_$i 2> /dev/null > /dev/null
+	    $iptables -t mangle --delete-chain ${DEV}_$i 2> /dev/null > /dev/null
+	done
+
+        # Flush and delete tables
+        $iptables -t mangle --flush        ${DEV}_S_T
+        $iptables -t mangle --delete-chain ${DEV}_S_T
+        $iptables -t mangle --flush        ${DEV}_S_I
+        $iptables -t mangle --delete-chain ${DEV}_S_I
+        $iptables -t mangle --flush        ${DEV}_S_U
+        $iptables -t mangle --delete-chain ${DEV}_S_U
+        $iptables -t mangle --flush        ${DEV}_S_O
+        $iptables -t mangle --delete-chain ${DEV}_S_O 
+        $iptables -t mangle --flush        ${DEV}_S_M
+        $iptables -t mangle --delete-chain ${DEV}_S_M 
+        $iptables -t mangle --flush        ${DEV}_S_L
+        $iptables -t mangle --delete-chain ${DEV}_S_L 
+        $iptables -t mangle --flush        ${DEV}_S_E
+        $iptables -t mangle --delete-chain ${DEV}_S_E 
+
+        $iptables -t mangle --flush        ${DEV}_SHAPER 
+        $iptables -t mangle --delete-chain ${DEV}_SHAPER 
+
+	) # > /dev/null 2>&1
+
+	
+# FIXME: Still a bug here somewhere
+#        $iptables -t mangle --flush POSTROUTING -o $DEV -j ${DEV}_SHAPER 
+        $iptables -t mangle --delete POSTROUTING -o $DEV -j ${DEV}_SHAPER 
+	
+        echo "Shaping chains removed on $DEV."
+        exit
+	;;
+start)
+        # add ${DEV}_SHAPER chains to the mangle table in $iptables
+
+        $iptables -t mangle --new-chain ${DEV}_SHAPER
+        $iptables -t mangle --new-chain ${DEV}_S_T # TCP
+        $iptables -t mangle --new-chain ${DEV}_S_U # UDP
+        $iptables -t mangle --new-chain ${DEV}_S_I # ICMP
+        $iptables -t mangle --new-chain ${DEV}_S_L # Link Local
+        $iptables -t mangle --new-chain ${DEV}_S_M # Multicast
+        $iptables -t mangle --new-chain ${DEV}_S_E # Encapsulated
+        $iptables -t mangle --new-chain ${DEV}_S_O # Other
+
+	gen_chains $CLASSID
+	icmp_optimize
+
+        for VOIP in $VOIPIPS
+        do
+                $iptables -t mangle -A ${DEV}_S_U --src $VOIP -g ${DEV}_C_TLK
+                $iptables -t mangle -A ${DEV}_S_U --dst $VOIP -g ${DEV}_C_TLK
+        done
+
+        for port in $P2PPORTS;          do setclassbyport $port ${DEV}_C_P2P; done
+        for port in $BULKPORTS;         do settcpclassbyport $port ${DEV}_C_BLK; done
+        for port in $BROWSINGPORTS;     do settcpclassbyport $port ${DEV}_C_BRW; done
+        for port in $VOIPPORTS;         do setclassbyport $port ${DEV}_C_TLK; done
+#       for port in $ACKS;              do setclassbyport $port ${DEV}_C_ACK; done
+        for port in $INTERACTIVEPORTS;  do setclassbyport $port ${DEV}_C_INT; done
+
+# FIXME: DNS transfers?
+  
+	ack_optimize ${DEV}_C_TLK ${BASEID}:30
+	ack_optimize ${DEV}_C_BRW ${BASEID}:40 # C_ACK
+
+#       FIXME: Where do the other protocols go? How do we handle fragmented packets?
+
+	$iptables -t mangle -A ${DEV}_S_O -j LOG
+
+# enable the shaper chains
+	$iptables -t mangle -A ${DEV}_SHAPER -p tcp -g ${DEV}_S_T
+#       http://en.wikipedia.org/wiki/Multicast_address
+
+if [ "$IPVER" = "6" ]
+then
+        $iptables -t mangle -A ${DEV}_SHAPER --source ff00::/8 -g ${DEV}_S_M
+        $iptables -t mangle -A ${DEV}_SHAPER --dest ff00::/8 -g ${DEV}_S_M
+else
+	$iptables -t mangle -A ${DEV}_SHAPER --source 224.0.0.0/4 -g ${DEV}_S_M
+	$iptables -t mangle -A ${DEV}_SHAPER --dest   224.0.0.0/4 -g ${DEV}_S_M
+fi
+	$iptables -t mangle -A ${DEV}_SHAPER -p udp -g ${DEV}_S_U
+	$iptables -t mangle -A ${DEV}_SHAPER -p icmp -g ${DEV}_S_I
+
+#       detect routing protocols (ospf, babel, batman)
+#       detect link local
+#       detect encapsulated (l2p
+#       SCTP 132 
+#       HIP (139)
+
+	$iptables -t mangle -A ${DEV}_SHAPER -g ${DEV}_S_O
+        $iptables -t mangle -i ${DEV} --insert POSTROUTING -o $DEV -g ${DEV}_SHAPER
+;;
+
+*)
+        echo "$0 [device] [ACTION] [6 | 4]"
+        echo "ACTION := { start | stop | status }"
+        exit
+	;;
+esac
+
