@@ -1,20 +1,20 @@
 * Beating Bufferbloat - and lowering latency for gaming and interactive applications
   http://gettys.wordpress.com/
 ** Background - 1996
-In 1996 I worked on a hybrid wireless cable/modem setup - it broadcast on channel 13 at 10Mbit/sec, and subscriber uplinks operated at 28,800 baud. No matter what we tried tcp downloads couldn't exceed about 6Mbits. 
+In 1996 I worked on a hybrid wireless cable/modem setup - it broadcast on channel 13 at 10Mbit/sec, and subscriber uplinks operated via 28,800 baud modems. No matter what we tried tcp downloads couldn't exceed about 6Mbits. 
 
 I realized, then, that TCP is "clocked" by the tcp ack packets.
 
 At the time I was overjoyed - it meant that the cable companies' sekret plan to only have enough upchannel bandwidth for a "buy" button wasn't going to work, and thus, no matter what, we'd have some semblance of a bidirectional internet in the future.
 
-I was a packethead, not a bellhead. 
+I was a packethead, not a bellhead, and I thought the future was bright.
 
 ** Background - 2002
-As home wireless networks took off, starting in the late 90s, there was an explosion of interest in 
+As home wireless networks took off, starting in the late 90s, there was an explosion of interest in VOIP. More networks were being widely shared.
 
 When I was trying to figure
 
-Came up with the wondershaper, and the problem seemed solved. The principal innovation of wondershaper was that it moved TCP ack packets into their own class, thus 
+Came up with the wondershaper, and the problem seemed solved. The principal innovation of wondershaper was that it moved TCP ack packets into their own class, 
 
 ** Background - 2006 - The asymmetric network takeover
 ** Background - 2004 - GigE
@@ -32,6 +32,8 @@ The math:
 Here is 
 
 * The endemic bufferbloat problem
+** Total failure of DHCP
+** IPv6 link local failures - routing/ip autonegotiation/etc
 ** Streaming Radio Failures
 ** Getting Fragged a lot
 ** Slow DNS
@@ -41,17 +43,62 @@ Here is
 If you don't do the following two steps, all you are doing is is steering your car onto an icy road. No amount of traffic shaping can save you. Death shall not release you. At MINIMUM, for voice traffic, you need to reduce your overall jitter well below 10ms, and latency below 10ms as well. I would suggest aiming for 2ms (at which point the jitter and latency at your internet gateway matches the rest of your internal wireless network [[assuming 11g]]. 
 
 *** Reduce DMA TX Queue length
-    The TX queue lengths on EVERY piece of Linux hardware are far too long at present. An extremist might view anything higher than 2 packets as too long, my view is less extreme - it's a function of your uplink bandwidth, more than anything else. You can get away with a balance that lowers the overall load on your CPU, but I'm willing to bet money that the extremes of DMA buffering I'm seeing are well beyond noticable for most systems. 
+    The DMA TX queue lengths on EVERY piece of Linux hardware are far too long at present. An extremist might view anything higher than 2 packets as too long, my view is less extreme - it's a function of your uplink bandwidth, more than anything else. You can get away with a balance that lowers the overall load on your CPU, but I'm willing to bet money that the extremes of DMA buffering I'm seeing are well beyond noticable for most systems. 
 
 That said a typical 
 **** OpenRD
-     The openrd (and related Guruplug/Sheevaplug) default to a dma transmit queue length of 256 entries. 
+     The openrd (and related Guruplug/Sheevaplug) ethernet drivers
+     default to a dma transmit queue length of 256 entries. I was able
+     to reduce it to 20. 
+
+     I put the following in /etc/rc.local
+
+#+begin_src
+# It would be best to set these in pre-up in /etc/interfaces
+# lower values would hang the interface
+ethtool -G eth0 tx 20 
+ethtool -G eth1 tx 20
+ifconfig eth0 txqueuelen 32
+ifconfig eth1 txqueuelen 32
+#+end_src
+
+     The default txqueuelen is 1000. This means
+     that with the combination of the default dma transmit queue and
+     txqueuelen - on a busy network with a 3.5Mbit uplink - an
+     outgoing packet can be delayed by over *half a second* which
+     really isn't what you want if you want to have a conversation or
+     frag someone!
+
+Now, I'm unsure as to the right number for txqueuelen, as I'm unsure
+as to how it relates to traffic shaping. My reasoning is that it
+should be deep enough to handle a packet burst from each of the
+devices on your network, which implies about (10*devices, maximum)/2 I
+have 6 devices on the network, so I settled on 32 as a starting point
+for txqueuelen and have been using that. In this case, 52 packets of
+maximum length (1500 bytes), assuming no shaping at all, gives a
+maximum latency of ~170ms (all 1500 byte packets), Assuming 260
+bytes as an average, ~30ms is the result. I would LIKE very much to
+reduce the maximum latency to 10ms, but that will involve exploring
+the driver to reduce its dma buffer, perhaps changing the clock
+interval, and other optimizations that I would hope someone else would
+do. A DMA tx of, say 4 - and a txqueuelen of 10, would get me to the
+10ms level I desire on this network.
+
+(And again, I think txqueuelen interacts with shaping)
+
+Regardless 
+
+Personally I think that the 
+
+Incidentally reducing the dma tx queue on my openrd to 20 had NO noticible effect on overall network performance.
+
 **** Nanostation M
+     
 
 *** Reduce txqueuelen
 
 
-* Recomendations
+* Non- Recomendations
 
 Ethernet drivers should probably defer allocating their ring buffers until AFTER negotiating a connection speed. 
 
@@ -62,22 +109,51 @@ There's a few ways to skin this cat. We could:
 Since the phones are on distinct IP addresses, we could simply prioritize all their packets above the other devices in the household. Regardless, offering a fair share of the bandwidth to all the active devices in the household would mean that the network degraded more slowly 
 * Theory
 ** [[http://www.adsl-optimizer.dk/thesis/]]
-** 
+** Using ECN
+
+http://icir.org/floyd/papers/collapse.may99.pdf
+
+Bps, for
+' ¤ & $ §¥
+"   ©
+#!  ̈
+connection is
+encryption in the IP Security Protocol (IPsec) [KA98] could
+prevent routers from using source IP addresses and port num-
+bers for identifying some flows; for this traffic, routers could
+use the triple in the packet header that defines the Security As-
+sociation to identify individual flows or aggregates of flows.
+
+
+Figure 11 shows the results for SACK TCP with a delayed-
+ACK receiver with the simulated topology of figure 9. For a
+fixed throughput, a TCP connection with a delayed-ACK re-
+ceiver should receive half the packet drop rate of a TCP con-
+nection that receives an ACK for every packet. The top solid
+line shows the analytical results for an immediate-ACK re-
+
+http://www.spinics.net/lists/linux-net/msg16542.html
 
 * Existing Alternatives
-ARP, DHCP, Routing protocols, DNS, ntp, voip, etc, are all far more important packet types than TCP and TCP/acks. 
+ARP, DHCP, Routing protocols, DNS, ntp, SIP, etc, are all far more important packet types than TCP and TCP/acks in most cases.
 
-have a tendency to optimize for two things - ssh interactivity and ping times, and wave hands when it comes to classifying the other packet types. 
+have a tendency to optimize for two things - ssh interactivity and ping times, and wave hands when it comes to classifying the other packet types. The otherwise excellent adsl-optimizer thesis relegates interactive traffic to a single paragraph 
 
-Worse, none of them talk to the special requirements of IPv6, which uses (in particular) link local multicast 
+Worse, none of them talk to the special requirements of IPv6, which uses (in particular) link local multicast, or encapsulated protocols (such as various VPN technologies).
 
-Absolutely all the shaper tools I've fiddled with http://www.nslu2-linux.org/wiki/HowTo/EnableTrafficShaping
+And they are not about resource sharing 
 
-Have increased by at least an order of magnitude. The problems that the data centers are solving are not the same problems that exist in the home or in the third world, where connection speeds range from 24Mbit/3Mibt (Comcast, my house), to 128k/128k (wireless throughout san juan del sur).
+Al the shaper tools I've fiddled with http://www.nslu2-linux.org/wiki/HowTo/EnableTrafficShaping
 
-Dependent on assumptions that were true then - 6k burst length, for example, is now invalidated by google's insertion into the Linux kernel of 10 packets = 15k, max. 
+Have defaults from the early 2002-2005 ADSL era, usually in the 1MB down/384k up, or 256k/128k up range. Note these ratios - 3 or 2 to 1!
 
-Fiddling with the terms of a complex equation, writing down the results of those terms,  and assuming they would scale. 
+Have increased by at least an order of magnitude, and the ratio between download speed and upload speed is now closer to 10 to 1!
+
+The problems that the data centers are solving are not the same problems that exist in the home or in the third world, where connection speeds range from 24Mbit/3Mbit (Comcast, my house), to 128k/128k (wireless throughout san juan del sur).
+
+Dependent on assumptions that were true in 2002 - a 6k burst length, for example, is now invalidated by google's insertion into the Linux kernel of 10 packets = 15k, max. 
+
+So everybody, including myself, fiddling with the terms of a complex equation, writing down the results of those terms, and assuming they would scale linearly. 
 
 As one example, the hfsc script described later assigns transport ratios in 10% of a percent, when a single percentage point would suffice.
 
@@ -858,3 +934,7 @@ One of the things I noticed in this admittedly brief view of the literature is t
 ** 
 
 http://www.ibm.com/developerworks/linux/library/l-tcp-sack/index.html
+* Problematic protocols
+** Skype is the elephant in the room
+http://l7-filter.clearfoundation.com/
+

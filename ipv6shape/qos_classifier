@@ -40,19 +40,33 @@ fi
 # OBSERVATION: there is roughly a 24to1 ratio of download to upload
 # with regards to ACKS. This suggests a good knob for acquiring
 # bandwidth for other applications
-# would be to reduce the bucket size for X bandwidth down by 
-# X/24 up.
+# would be to reduce the ack bandwidth bucket size for X bandwidth down by 
+# X/23 up (for IPv4). IPv6, using 6in4, is a little different - 1500/94 = 15
+# But that's not the whole story as you need to factor in encapsulation 
+# overhead on the acks, which comes to a whopping 40? bytes: 1500/(86+40) = 11
 
-# Secondly, in my case (24Mbit down, 3.8Mbit up), a MAXIMUM of ~25% of the 
-# upload bandwidth can be taken up by acks without saturating the downlink.
+# *ANY encapsulation protocol* for TCP is going to have this problem
+# be it a VPN or whatever. And this does not account for SACKs AT ALL.
+
+# so, in my case (24Mbit down, 3.8Mbit up), a MAXIMUM of ~27% of the 
+# upload bandwidth can be taken up by IPv4 acks without saturating the 
+# downlink.
+# Period.
+
 # So again, we have a knob here that is probably the most fruitful
 # one to be pushing AND my original reasoning for this function is incorrect - 
 # we DO want to put ALL outgoing acks into their own bucket(s) and severely
-# rate limit them, to head drop, etc.
+# rate limit them, do ECN, to head drop, etc.
 
 
-# Note that a SHORT ACK packet is different in ipv6
+# Note that a SHORT ACK packet is different in ipv6 
+# - 86 bytes on the wire for ACKS AND, at least on my OS, the SYN
+# contains an options header making it 94 bytes long AND
+# although SACK is allowed in both the header and response
+# it never gets used. 
+
 # FIXME, we want to penalize more stuff
+
 
 function ack_optimize() {
 CH=$1
