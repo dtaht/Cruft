@@ -80,22 +80,35 @@ $iptables -t mangle -A $CH \
     -j CLASSIFY --set-class $CL
 }
 
+function ack_optimize6() {
+CH=$1
+CL=$2
+
+# FIXME, NEED TO PUT THE CLASS ELSEWHERE
+
+$iptables -t mangle -A $CH \
+    -p tcp \
+    -m tcp --tcp-flags FIN,SYN,RST,ACK ACK \
+    -j CLASSIFY --set-class $CL
+}
+
 # To adaquately measure the various bins under various loads
 # via ICMP we arbitrarily optimize certain ping sizes
 
 function icmp_optimize() {
-        # put large (512+) icmp packets in browsing category
-    $iptables -t mangle -A ${DEV}_S_I \
-        -p icmp \
-        -m length --length 512: \
-        -g ${DEV}_C_BRW
+P=80
+for i in $CLASSES
+do
+	$iptables -t mangle -A ${DEV}_S_I \
+        -p icmp -m length --length $P \
+        -g ${DEV}_${i}
+P=`expr $P + 1`
+done
 
-        # ICMP (ip protocol 1) in the interactive class
-    $iptables -t mangle -A ${DEV}_S_I \
-        -p icmp  \
-        -m length --length :512 \
-        -g ${DEV}_C_INT
-    }
+# it makes sense to further classify ping packets than this
+# but this is for testing only so...
+
+}
 
 case "$ACTION" in
 status)

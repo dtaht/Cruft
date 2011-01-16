@@ -102,6 +102,18 @@ Incidentally reducing the dma tx queue on my openrd to 20 had NO noticible effec
 
 Ethernet drivers should probably defer allocating their ring buffers until AFTER negotiating a connection speed. 
 
+* /proc variables
+
+tcp_low_latency 1
+tcp_sack
+tcp_frto
+
+
+              2  Enable SACK-enhanced F-RTO if flow uses SACK.  The basic version can
+                 be used also when SACK is in use though in that case scenario(s)
+                 exists where F-RTO interacts badly with the packet counting of the
+                 SACK-enabled TCP flow.
+
 * Discussion
 
 There's a few ways to skin this cat. We could:

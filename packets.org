@@ -1,0 +1,23 @@
+  
+
+Got it in one, with a good set of analogies!
+
+The only thing I'd add to your commentary is that once a network is in congestion collapse, other critical packets can't do their jobs, either.
+
+This includes DNS - adding hundreds of ms of latencies to turning a name like your website into an ip address is not good.
+
+With a typical web page doing dozens, even hundreds of DNS lookups, DNS not getting through in a timely fashion on a congested network results in vastly slower browsing.
+
+NTP - the network time protocol - relies on somewhat timely delivery of packets in order to keep your computer's clock in sync.
+
+ARP - the address resolution protocol also relies on timely resolution in order to find other devices on your network.
+
+DHCP - if these packets are lost or excessively delayed, machines can't even get on the network in the first place.
+
+Routing - many routing protocols - the stuff that detects failures in the network - when intolerably delayed can cause even larger problems.
+
+(most) VOIP needs about a single packet per 10ms flow in order to be good, and less than 30 jitter.
+
+Gamers will get fragged a lot more often with latencies above their twitch factor.
+
+That's just my top 6. At the moment I'm doing tests as to what I can do to improve streaming radio.... 
