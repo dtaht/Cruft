@@ -1,0 +1,127 @@
+* TODO lists.bufferbloat.net
+** DONE don't do a cname
+** DONE Must have a real IP address
+** DONE Need mx records
+** DEFR nolisting?
+** Email
+*** TODO Mailman
+**** DONE Basic mailman (web/https)
+**** DONE need redirect for bare https: url
+**** DONE Test email exchanges through the backup mx
+**** TODO test exchanges through exim mailers
+**** TODO html filtering working?
+**** TODO CAPCHA
+*** WAIT SSL CERT 							 :JG:
+    SCHEDULED: <2011-01-17 Mon>
+*** WAIT REVERSE LOOKUP :ISC:
+    SCHEDULED: <2011-01-17 Mon>
+*** DONE DNS RBLS
+*** DONE procmail NOT dovecot
+*** TODO Search engine
+    xapian? 
+*** TODO Customize with puzzle pieces :JG:
+** TODO Backups
+   where? Gettys.net seems like a good idea. Rsync.net possibly
+*** DB backup
+*** rsync backup
+*** Toutatis backup
+** Nagios
+*** TODO Get nagios installed and configured or something else
+
+* Global Tasks
+** DONE Enable NTP
+*** TODO ask isc for theirs
+** Local DNS
+*** DONE siwa (cache only)
+*** TODO shipka
+** Dogfood
+*** DONE Turn on ECN/sack/dsack
+    /etc/sysctl.d/60-bufferbloat.conf
+*** DONE Reduce txqueuelen to 64
+*** TODO Check into DMA tx queues on these servers
+*** TODO SFB for outgoing packets?
+** Firewall rules
+*** TODO Allow 222, 443, 80, tcp/udp 53, udp > 1024, git, rsync
+*** DONE Have some sort of temporary open for outgoing
+*** DONE Whitelist 567, 25 for dyndns, shipka. 
+*** TODO load module with ip_list_tot=2000
+*** TODO fully test napkin script for dynamic opening of port 25
+*** TODO NMAP scan
+* TODO Redmine
+** Redmine 1.1?
+*** Need to migrate anyway to pg
+- first, install redmine in a fresh postgre database
+- then copy the rows from every table from the mysql database to the postgresql, truncating the postgresql tables first.
+- select max(id) from MyTable; => max(id) + 1 (MaxIdPlusOne) => use that number in an ALTER SEQUENCE MyTable_id_seq RESTART with MaxIdPlusOne; That for every table with a sequence.
+*** http://www.redmine.org/projects/redmine/wiki/RedmineInstall
+*** Think hard about planning to scale
+    Web server/http server separation
+** Fastcgi is a must
+** https
+   RequestHeader set X_FORWARDED_PROTO 'https' in apache
+** Ignore MX records for emails to lists.bufferbloat.net
+*** transport_map
+*** Smarthost
+** Expires headers & etags & Yslow
+** Git or github integration
+   http://www.redmine.org/projects/redmine/wiki/HowTo_keep_in_sync_your_git_repository_for_redmine
+** Email <-> forum gateway??
+   Meh: http://www.redmine.org/issues/1616
+** Admin Logins
+** Restore of other data
+** DB tuning
+** Domain name - redmine? Wiki?
+** WAIT SSL web cert							 :JG:
+   SCHEDULED: <2011-01-17 Mon>
+** Firewall
+** Backups
+** Slashdot test
+   (originate lots of hits from my other servers)
+* Random Tasks
+** IRC channel
+*** irc bot to hold #bufferbloat alive
+*** irc commit notifications
+** github fork of Linux-wireless
+*** irc commit notifications
+** NTP interaction with bufferbloat?
+
+Jan 16 06:18:18 siwa dovecot: Fatal: Time just moved backwards by 9 seconds. This might cause a lot of problems, so I'll just kill myself now. http://wiki.dovecot.org/TimeMovedBackwards
+** ECN issues
+http://icir.org/floyd/ecnProblems.html
+
+** Enabling ecn on osx
+*** Normally
+Re:
+http://icir.org/floyd/ecn.html
+
+MAC OS X:
+Leopard 10.5.0 implements ECN, controlled by the variables "net.inet.tcp.ecn_negotiate_in" and "net.inet.tcp.ecn_initiate_out". Reported by Rui Paulo, 2007. 
+
+*** For tunnels
+
+   ECN friendly behavior
+     gif can be configured to be ECN friendly, as described in draft-ietf-ipsec-ecn-02.txt.  This is turned
+     off by default, and can be turned on by IFF_LINK1 interface flag.
+
+     Without IFF_LINK1, gif will show a normal behavior, like described in RFC2893.  This can be summarized
+     as follows:
+
+           Ingress  Set outer TOS bit to 0.
+
+           Egress   Drop outer TOS bit.
+
+     With IFF_LINK1, gif will copy ECN bits (0x02 and 0x01 on IPv4 TOS byte or IPv6 traffic class byte) on
+     egress and ingress, as follows:
+
+           Ingress  Copy TOS bits except for ECN CE (masked with 0xfe) from inner to outer.  Set ECN CE bit
+                    to 0.
+
+           Egress   Use inner TOS bits with some change.  If outer ECN CE bit is 1, enable ECN CE bit on the
+                    inner.
+
+     Note that the ECN friendly behavior violates RFC2893.  This should be used in mutual agreement with the
+     peer.
+
+** DONE have gnugol use global keys
+*** Also installed on shipka
+** Join #redmine

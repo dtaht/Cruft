@@ -1,0 +1,14 @@
+daveb at dslprime.com liked johnezang. raax7 nailed him.
+
+
+s.
+
+
+Now, let's say that the link between the west most switch and the west coast PC is only 10 Mbit/s, while all others are 100 Mbit/s.
+Let's also say each switch has a 512 kB FIFO buffer. And that the PCs are using an OS with TCP window scaling.
+
+Q: How much buffer is being used in each switch?
+A: From East to West: none, none, all of 512 kB.
+
+Q: How much latency does this add?
+A: About 400 ms.

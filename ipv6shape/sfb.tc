@@ -1,0 +1,18 @@
+tc qdisc add dev eth0 root handle 1: sfb hash-type source
+
+#Sfb only deals with marking/dropping packets, but doesn't reorder
+#them.  You may want to put a reordering qdisc below sfb.
+
+tc qdisc add dev eth0 handle 2: parent 1: prio
+
+#Since sfb penalises inelastic flows rather severely, you may want to
+#put another qdisc above sfb to bypass sfb for such flows.  And of
+#course if you're rate-limiting (e.g. using cbq, tbf or htb) you'll
+#want to do that above sfb.
+
+#If you have the patched version of tc (see below), you may set
+#non-default values and see some of sfb's statistics:
+
+#  tc qdisc add dev eth0 root handle 1: sfb target 30 max 50 penalty_rate 100
+  tc -s qdisc show dev eth0
+
