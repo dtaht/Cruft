@@ -1,39 +1,87 @@
 * TODO lists.bufferbloat.net
 ** DONE don't do a cname
-** DONE Must have a real IP address
+** DONE Must have a real IP address 
 ** DONE Need mx records
-** DEFR nolisting?
+** DONE nag about reverse DNS
+** DEFR nolisting
 ** Email
 *** TODO Mailman
 **** DONE Basic mailman (web/https)
 **** DONE need redirect for bare https: url
 **** DONE Test email exchanges through the backup mx
+**** DONE Add more mailing lists
+     CLOSED: [2011-01-21 Fri 15:39]
+     :LOGBOOK:
+     - State "DONE"       from "STARTED"    [2011-01-21 Fri 15:39]
+     - State "STARTED"    from "STARTED"    [2011-01-21 Fri 11:12]
+     CLOCK: [2011-01-21 Fri 11:12]--[2011-01-21 Fri 15:38] =>  4:26
+     :END:
+     added theory, bloat-announce, bloat-devel
 **** TODO test exchanges through exim mailers
 **** TODO html filtering working?
-**** TODO CAPCHA
+**** DEFR CAPCHA - require approval to enter the list(s)
 *** WAIT SSL CERT 							 :JG:
     SCHEDULED: <2011-01-17 Mon>
-*** WAIT REVERSE LOOKUP :ISC:
-    SCHEDULED: <2011-01-17 Mon>
+*** DONE REVERSE LOOKUP 						:ISC:
 *** DONE DNS RBLS
 *** DONE procmail NOT dovecot
 *** TODO Search engine
-    xapian? 
+    xapian preferred. Google custom maybe.
 *** TODO Customize with puzzle pieces :JG:
+*** TODO Gmane gateway
+    gmane.bufferbloat.users
+    gmane.bufferbloat.devel
+    gmane.bufferbloat.announce
+
+** TODO Schedules
+*** Hard disk test at 3AM
+*** Backups at 1AM
+*** Cron locate at 2AM
+*** Monthly faq to bloat-announce
 ** TODO Backups
    where? Gettys.net seems like a good idea. Rsync.net possibly
 *** DB backup
 *** rsync backup
 *** Toutatis backup
-** Nagios
-*** TODO Get nagios installed and configured or something else
-
 * Global Tasks
 ** DONE Enable NTP
-*** TODO ask isc for theirs
+*** DONE ask isc for theirs
+** snmpd
+*** DONE Configure proc monitoring
+*** TODO Allow Access
+*** TODO Configure users
+*** TODO Configure mibs
+** Smartd
+*** DONE apt-get install snmpd smartmontools
+*** DONE configure to monitor - sending to hwmon@lists.bufferbloat.net
+*** DONE Self tests - look good
+** Hardware monitoring
+*** Fan/cpu temp
+** Web server log analysis
+*** Analyzer?
+** System log analysis?
+*** TODO Why is the nightly update dumping core?
+** Bandwidth analysis - mrtg? Cacti? What?
+   DEPENDS: snmp
+** Nagios
+*** DONE Get nagios server installed 
+*** TODO Nagios clients
+*** TODO Configure 
+** Valid Url checker/report
+** Feedvalidator
+** International support
+   Spanish translations of core documents, etc
+** Apache tuning
+*** Rate limit according to the CPU 
 ** Local DNS
 *** DONE siwa (cache only)
-*** TODO shipka
+*** DONE shipka (cache only)
+    CLOSED: [2011-01-20 Thu 11:54]
+    :LOGBOOK:
+    - State "DONE"       from "STARTED"    [2011-01-20 Thu 11:54]
+    - State "STARTED"    from "STARTED"    [2011-01-20 Thu 11:53]
+    CLOCK: [2011-01-20 Thu 11:53]--[2011-01-20 Thu 11:54] =>  0:01
+    :END:
 ** Dogfood
 *** DONE Turn on ECN/sack/dsack
     /etc/sysctl.d/60-bufferbloat.conf
@@ -41,46 +89,116 @@
 *** TODO Check into DMA tx queues on these servers
 *** TODO SFB for outgoing packets?
 ** Firewall rules
-*** TODO Allow 222, 443, 80, tcp/udp 53, udp > 1024, git, rsync
+*** TODO Allow 222, 443, 80, 81, tcp/udp 53, tcp/udp > 1024, git (9418), rsync
+    enable ufw
+*** TODO Have a syn rate limiter handy
+**** Range of 30-300 connects/sec on 443?
 *** DONE Have some sort of temporary open for outgoing
 *** DONE Whitelist 567, 25 for dyndns, shipka. 
+*** TODO prioritize port 222 traffic for interactive
+*** TODO Leave postgres port open for certain ips
+*** DONE Fiddle with txqueuelen
+*** TODO whitelist snmpd (161) for monitor hosts
 *** TODO load module with ip_list_tot=2000
-*** TODO fully test napkin script for dynamic opening of port 25
+*** TODO fully test dynamic opening of port 25
+*** TODO Integrate firewall and shaping script(s)
 *** TODO NMAP scan
+*** TODO System updates
+*** TODO Reboots
 * TODO Redmine
-** Redmine 1.1?
-*** Need to migrate anyway to pg
+** DONE Redmine 1.1 branched from git
+*** DONE Need to migrate anyway to pg
 - first, install redmine in a fresh postgre database
 - then copy the rows from every table from the mysql database to the postgresql, truncating the postgresql tables first.
 - select max(id) from MyTable; => max(id) + 1 (MaxIdPlusOne) => use that number in an ALTER SEQUENCE MyTable_id_seq RESTART with MaxIdPlusOne; That for every table with a sequence.
 *** http://www.redmine.org/projects/redmine/wiki/RedmineInstall
 *** Think hard about planning to scale
-    Web server/http server separation
-** Fastcgi is a must
-** https
-   RequestHeader set X_FORWARDED_PROTO 'https' in apache
-** Ignore MX records for emails to lists.bufferbloat.net
-*** transport_map
-*** Smarthost
-** Expires headers & etags & Yslow
-** Git or github integration
+**** Web server/http server separation
+**** EC2
+**** DB/web server separation
+***** WAIT Postgres 9.0?
+      Too hard right now... Wait for official support
+      Maybe install on sima
+
+*** TODO Kill whatever is using mysql
+*** DONE kill apache-prefork in favor of apache-mpm wherever possible
+*** DONE Add favicon - added seems not to be vectored through this
+*** TEST Redirect javascripts, images, css, files(?) so they can be handled by apache directly
+*** CNCL etags
+    too many hassles with multiple front ends, just supply cache for now
+*** DONE Add mathjax support - works https://shipka.bufferbloat.net/MathJax/test/
+*** TODO Add mathjax support to wiki headers somehow
+*** TEST openid support
+*** TEST RMagick 
+*** DONE Import old files
+*** CNCL Import old data
+*** TODO Email integration
+*** TODO Backups
+*** TODO Block access to certain stuff via robots.txt
+*** TODO GET Content
+**** Mysql dump from wordpress
+**** Email logs
+** UNKN RequestHeader set X_FORWARDED_PROTO 'https' in apache??
+** DONE Ignore MX records for emails to [lists.bufferbloat.net]
+*** CNCL transport_map for submit port
+*** DONE Smarthost
+** DONE Get apache configured for fcgi
+   CLOSED: [2011-01-19 Wed 23:20]
+   :LOGBOOK:
+   - State "DONE"       from "STARTED"    [2011-01-19 Wed 23:20]
+   - State "STARTED"    from "STARTED"    [2011-01-19 Wed 21:11]
+   CLOCK: [2011-01-19 Wed 21:11]--[2011-01-19 Wed 23:20] =>  2:09
+   :END:
+   :PROPERTIES:
+   :Effort:   1:00
+   :END:
+** DONE Expires headers
+** DONE CSS or textile fix for images
+*** DONE CSS fix 100% width
+*** DEFR Rumors have it that using textile's scaling is subject to XSS attacks
+** TODO Keep 4 ruby processes handy
+   Must have misconfigured, I end up with 0 after being idle
+** GRMP Attachments/images go through redmine rather than sanely through apache
+   Maybe put some stuff in ~user dirs
+*** TODO Fix existing attachments
+** CNCL etags - not needed 
+** RTRY Yslow
+** TODO github integration
    http://www.redmine.org/projects/redmine/wiki/HowTo_keep_in_sync_your_git_repository_for_redmine
 ** Email <-> forum gateway??
    Meh: http://www.redmine.org/issues/1616
-** Admin Logins
-** Restore of other data
+** Plugins
+*** Flot?
+*** TEST Youtube
+*** Mathjax support
+   http://blog.felixbreuer.net/2010/03/19/writing-math.html
+** DONE Admin Logins
 ** DB tuning
-** Domain name - redmine? Wiki?
-** WAIT SSL web cert							 :JG:
-   SCHEDULED: <2011-01-17 Mon>
-** Firewall
-** Backups
-** Slashdot test
+*** DONE Autovacuum or schedule? (Autovacuum for now)
+*** DONE Buffers/connections high enough? (Think so)
+*** TODO Do statistics step after backups
+*** DEFR Increase buffering? Not needed yet
+** Domain name
+*** TODO Do redirects 
+    from http(s)://www.bufferbloat.net to https://bufferbloat.net 
+    or vice versa 
+    Do redirects from http://bufferbloat.net to https://bufferbloat.net
+** TODO Firewall
+** Schedules
+*** database optimization at 4AM
+
+*** Backups
+** Markdown format + textile?
+** TODO How do you do tags in the wiki (ex: glossary)
+** TODO Slashdot/Stress test
    (originate lots of hits from my other servers)
+** siwa.bufferbloat.net admin landing page
+   mrtg, nagios, health, etc
+   Also SSL (don't care about real SSL)
 * Random Tasks
 ** IRC channel
-*** irc bot to hold #bufferbloat alive
-*** irc commit notifications
+*** TODO irc bot to hold #bufferbloat alive
+*** TODO irc commit notifications
 ** github fork of Linux-wireless
 *** irc commit notifications
 ** NTP interaction with bufferbloat?
@@ -88,7 +206,6 @@
 Jan 16 06:18:18 siwa dovecot: Fatal: Time just moved backwards by 9 seconds. This might cause a lot of problems, so I'll just kill myself now. http://wiki.dovecot.org/TimeMovedBackwards
 ** ECN issues
 http://icir.org/floyd/ecnProblems.html
-
 ** Enabling ecn on osx
 *** Normally
 Re:
@@ -124,4 +241,15 @@ Leopard 10.5.0 implements ECN, controlled by the variables "net.inet.tcp.ecn_neg
 
 ** DONE have gnugol use global keys
 *** Also installed on shipka
+** Apt repo(s) for debian/ubuntu
+*** bufferbloat-tests
+*** bufferbloat-finder
+*** bufferbloat-homegw
+
+*** bufferbloat-desktop
+*** bufferbloat-server
+*** bufferbloat-experimental
+** RPM repos
+* Personal
 ** Join #redmine
+** Bugreport problem with postgres9 repo
