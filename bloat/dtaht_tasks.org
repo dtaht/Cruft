@@ -127,7 +127,8 @@
 *** CNCL etags
     too many hassles with multiple front ends, just supply cache for now
 *** DONE Add mathjax support - works https://shipka.bufferbloat.net/MathJax/test/
-*** TODO Add mathjax support to wiki headers somehow
+*** DONE Add mathjax support to wiki headers
+    I'm a little dubious about the change in the regexp. Asked eric for advice.
 *** TEST openid support
 *** TEST RMagick 
 *** DONE Import old files
