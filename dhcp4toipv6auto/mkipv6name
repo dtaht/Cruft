@@ -1,0 +1,11 @@
+#!/bin/sh
+
+
+NETMASK=$4 
+PREFIX=$3
+MACADDR=$2
+LAN=$1
+
+IP6ADDR=$PREFIX:`ipv6calc --in mac --out eui64 $MACADDR`
+
+echo $IP6ADDR
