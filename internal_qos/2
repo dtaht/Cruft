@@ -1,0 +1,3 @@
+ip6tables  -p  tcp  --syn  --dport  80  -s  fe80::/64  -m connlimit --connlimit-above 16 --connlimit-mask 64 -j REJECT
+
+ip6tables -p 

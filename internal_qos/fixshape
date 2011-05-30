@@ -1,0 +1,19 @@
+#!/bin/sh
+
+ip6tables -t mangle -X SHAPER_M
+ip6tables -t mangle -X SHAPER
+ip6tables -t mangle -N SHAPER_M
+ip6tables -t mangle -N SHAPER
+
+ip6tables -t mangle -A SHAPER_M -setdscp 
+
+ip6tables -t mangle -A SHAPER --dest ff00::/8 -g SHAPER_M
+ip6tables -t mangle -A SHAPER --source fe00::/8 -g SHAPER_M
+
+# IPv4 multicast
+
+iptables -t mangle -A SHAPER --source 224.0.0.0/4 -g SHAPER_M
+iptables -t mangle -A SHAPER --dest   224.0.0.0/4 -g SHAPER_M
+iptables -t INPUT -i $LAN_IFACE -p udp --dport 67:68 --sport \
+67:68 -j ACCEPT
+

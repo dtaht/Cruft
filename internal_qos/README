@@ -1,0 +1,11 @@
+Internal QOS
+
+Wireless lans and wired lans have a few system critical packets
+that MUST get through in order for the lan to continue to function
+
+Notably ARP, DHCP, Link local multicast.
+
+NTP helps too.
+
+
+
