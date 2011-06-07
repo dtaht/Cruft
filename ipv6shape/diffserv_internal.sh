@@ -108,9 +108,9 @@ $iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $XWINPORTS -j
 
 # Probably incorrect for gaming, which uses udp usually
 $iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $GAMINGPORTS -j DSCP --set-dscp-class AF11 -m comment --comment 'Gaming'
-$iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $PROXYPORTS -j DSCP --set-dscp-class AF21 -m comment --comment 'Web proxies good'
 $iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $ROUTINGPORTS -j DSCP --set-dscp-class AF11 -m comment --comment 'Routing'
 $iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $BROWSINGPORTS -j DSCP --set-dscp-class AF32 -m comment --comment 'BROWSING'
+$iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $PROXYPORTS -j DSCP --set-dscp-class AF21 -m comment --comment 'Web proxies better for browsing'
 $iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $SCMPORTS -j DSCP --set-dscp-class AF22 -m comment --comment 'SCM'
 $iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $FILEPORTS -j DSCP --set-dscp-class AF22 -m comment --comment 'Normal File sharing'
 $iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $MAILPORTS -j DSCP --set-dscp-class AF32 -m comment --comment 'MAIL clients'
@@ -121,11 +121,15 @@ $iptables -t mangle -A Wireless -p tcp -m tcp -m multiport --ports $P2PPORTS -j 
 
 # should probably make these rules separate on a per class basis
 
-$iptables -t mangle -A Wireless -p tcp -m tcp --tcp-flags ALL SYN -j DSCP --set-dscp-class AF12 -m comment --comment 'Expedite new connections' 
+$iptables -t mangle -A Wireless -p tcp -m tcp --syn -j DSCP --set-dscp-class AF12 -m comment --comment 'Expedite new connections' 
 $iptables -t mangle -A Wireless -p tcp -m tcp --tcp-flags ALL SYN,ACK -j DSCP --set-dscp-class AF12 -m comment --comment 'Expedite new connection ack' 
 
-# FIXME: Make ECN enabled streams mildly higher priority
+# FIXME: Maybe make ECN enabled streams mildly higher priority. This just counts the number of ECN and non-ECN streams
 
+$iptables -t mangle -A Wireless -p tcp -m tcp --tcp-flags ALL SYN,ACK -m ecn --ecn-tcp-ece -m recent --name ecn_enabled --set -m comment --comment 'ECN enabled streams' 
+$iptables -t mangle -A Wireless -p tcp -m tcp --tcp-flags ALL SYN,ACK -m ecn ! --ecn-tcp-ece -m recent --name ecn_disabled --set -m comment --comment 'ECN disabled streams' 
+
+# --ecn-tcp-remove can be used for blackholes
 
 # I thought I could do this in a prerouting rule, but it didn't work
 $iptables -t mangle -F POSTROUTING
